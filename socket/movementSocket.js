@@ -35,7 +35,8 @@ module.exports = (io) => {
             lng: null,
             timestamp: Date.now(),
             energy: null,
-            runPath: []
+            runPath: [],
+            sessionDistanceRun: 0 // Track distance in memory for this session
         });
 
         socket.on('gpsUpdate', (data) => {
@@ -49,7 +50,7 @@ module.exports = (io) => {
 
             const playerState = players.get(socket.id);
 
-            // If we have a previous position, validate the jump
+            // If we have a previous position, validate the jump and accumulate distance
             if (playerState.lat !== null && playerState.lng !== null) {
                 const distance = calculateDistance(playerState.lat, playerState.lng, lat, lng);
                 const timeDiffSeconds = (t - playerState.timestamp) / 1000;
@@ -62,6 +63,9 @@ module.exports = (io) => {
                         socket.emit('antiCheatFlag', { message: 'Suspicious movement detected.' });
                         return; // Drop invalid point
                     }
+
+                    // Accumulate valid distance
+                    playerState.sessionDistanceRun += distance;
                 }
             }
 
@@ -75,8 +79,17 @@ module.exports = (io) => {
             }
         });
 
-        socket.on('disconnect', () => {
+        socket.on('disconnect', async () => {
             console.log(`Socket disconnected: ${socket.id}`);
+            const playerState = players.get(socket.id);
+            if (playerState && playerState.sessionDistanceRun > 0) {
+                try {
+                    // Update the user's total distance run in the database
+                    await db.query(`UPDATE users SET distance_run = distance_run + $1 WHERE id = $2`, [playerState.sessionDistanceRun, playerState.userId]);
+                } catch (err) {
+                    console.error('Failed to update distance_run on disconnect:', err);
+                }
+            }
             players.delete(socket.id);
         });
     });

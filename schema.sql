@@ -12,6 +12,11 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     energy INTEGER DEFAULT 0,
     level INTEGER DEFAULT 1,
+    distance_run DOUBLE PRECISION DEFAULT 0,
+    total_area DOUBLE PRECISION DEFAULT 0,
+    territories_count INTEGER DEFAULT 0,
+    rank TEXT DEFAULT 'SOLO_WARRIOR',
+    avatar TEXT DEFAULT 'default',
     created_at TIMESTAMP DEFAULT NOW(),
     last_login TIMESTAMP DEFAULT NOW()
 );
