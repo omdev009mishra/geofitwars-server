@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const territoryRoutes = require('./routes/territory');
+const friendRoutes = require('./routes/friends');
 
 const setupMovementSocket = require('./socket/movementSocket');
 
@@ -29,6 +30,7 @@ app.use(express.json()); // Parses application/json payloads
 app.use('/auth', authRoutes);
 app.use('/user', userRoutes);
 app.use('/territory', territoryRoutes);
+app.use('/friends', friendRoutes);
 
 // General health check route
 app.get('/', (req, res) => {

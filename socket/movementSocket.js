@@ -25,8 +25,32 @@ module.exports = (io) => {
         }
     });
 
-    io.on('connection', (socket) => {
+    io.on('connection', async (socket) => {
         console.log(`Socket connected: ${socket.id} (User: ${socket.userId})`);
+
+        // Social Connect capability: Mark user online on connection
+        try {
+            await db.query(`UPDATE users SET is_online = true WHERE id = $1`, [socket.userId]);
+
+            // Broadcast to the user's friends that they came online
+            const friendsRes = await db.query(`
+                SELECT CASE 
+                    WHEN requester_id = $1 THEN recipient_id 
+                    ELSE requester_id 
+                END as friend_id 
+                FROM friends WHERE status = 'accepted' AND (requester_id = $1 OR recipient_id = $1)
+            `, [socket.userId]);
+
+            friendsRes.rows.forEach(friend => {
+                io.to(friend.friend_id).emit('user-online', socket.userId);
+            });
+
+            // Join a personal room for direct messages/events
+            socket.join(socket.userId);
+
+        } catch (err) {
+            console.error('Error marking user online: ', err);
+        }
 
         // Initialize player state
         players.set(socket.id, {
@@ -79,17 +103,64 @@ module.exports = (io) => {
             }
         });
 
+        // --- Social Connect Real-Time Events ---
+
+        // Listen for new friend request emissions
+        socket.on('friend-request', (data) => {
+            // Forward the friend request notification to the recipient if they are connected
+            if (data && data.recipientId) {
+                io.to(data.recipientId).emit('friend-request', {
+                    requesterId: socket.userId
+                });
+            }
+        });
+
+        // Listen for accepting friendship
+        socket.on('friend-accepted', (data) => {
+            if (data && data.requesterId) {
+                io.to(data.requesterId).emit('friend-accepted', {
+                    recipientId: socket.userId
+                });
+            }
+        });
+
         socket.on('disconnect', async () => {
             console.log(`Socket disconnected: ${socket.id}`);
             const playerState = players.get(socket.id);
             if (playerState && playerState.sessionDistanceRun > 0) {
                 try {
                     // Update the user's total distance run in the database
-                    await db.query(`UPDATE users SET distance_run = distance_run + $1 WHERE id = $2`, [playerState.sessionDistanceRun, playerState.userId]);
+                    await db.query(`UPDATE users SET distance_run = distance_run + $1, is_online = false WHERE id = $2`, [playerState.sessionDistanceRun, playerState.userId]);
                 } catch (err) {
-                    console.error('Failed to update distance_run on disconnect:', err);
+                    console.error('Failed to update distance_run and online status on disconnect:', err);
+                }
+            } else if (playerState) {
+                try {
+                    await db.query(`UPDATE users SET is_online = false WHERE id = $1`, [playerState.userId]);
+                } catch (err) {
+                    console.error('Failed to update online status on disconnect:', err);
                 }
             }
+
+            // Notify friends they went offline
+            if (playerState) {
+                try {
+                    const friendsRes = await db.query(`
+                        SELECT CASE 
+                            WHEN requester_id = $1 THEN recipient_id 
+                            ELSE requester_id 
+                        END as friend_id 
+                        FROM friends WHERE status = 'accepted' AND (requester_id = $1 OR recipient_id = $1)
+                    `, [playerState.userId]);
+
+                    friendsRes.rows.forEach(friend => {
+                        io.to(friend.friend_id).emit('user-offline', playerState.userId);
+                    });
+                } catch (e) {
+                    console.error(e)
+                }
+            }
+
             players.delete(socket.id);
         });
     });

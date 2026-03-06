@@ -71,4 +71,54 @@ router.post('/updateProfile', async (req, res) => {
     }
 });
 
+// GET /user/nearby
+// Retrieve users located closely to you dynamically based on the geometries. 
+// For GeofitWars, we use the `territories` location column
+router.get('/nearby', async (req, res) => {
+    try {
+        const { lat, lng } = req.query;
+        let radius = parseInt(req.query.radius) || 5000;
+
+        if (!lat || !lng) {
+            return res.status(400).json({ error: 'Latitude and Longitude required' });
+        }
+
+        // Search for distinct users who own turf within this radius
+        const result = await db.query(
+            `SELECT DISTINCT u.id, u.username as name, u.email, u.avatar as "profileImage", u.is_online as "isOnline",
+                ST_Y(t.location::geometry) as lat, ST_X(t.location::geometry) as lng
+             FROM users u
+             JOIN territories t ON u.id = t.owner_id
+             WHERE ST_DWithin(t.location, ST_SetSRID(ST_MakePoint($1, $2), 4326), $3)`,
+            [lng, lat, radius]
+        );
+
+        res.status(200).json(result.rows);
+    } catch (err) {
+        console.error('Nearby API Error:', err);
+        res.status(500).json({ error: 'Server error retrieving nearby users.' });
+    }
+});
+
+// GET /user/search
+router.get('/search', async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) return res.status(400).json({ error: 'Query string required.' });
+
+        const result = await db.query(
+            `SELECT id as "userId", username as name, avatar as "profileImage"
+             FROM users 
+             WHERE username ILIKE $1
+             LIMIT 20`,
+            [`%${q}%`]
+        );
+
+        res.status(200).json(result.rows);
+    } catch (err) {
+        console.error('Search API Error:', err);
+        res.status(500).json({ error: 'Server error searching users.' });
+    }
+});
+
 module.exports = router;
