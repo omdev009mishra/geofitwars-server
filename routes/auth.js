@@ -82,10 +82,12 @@ router.post('/login', async (req, res) => {
 
         res.status(200).json({
             token,
-            userId: user.id,
-            username: user.username,
-            energy: user.energy,
-            level: user.level
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                player_id: user.player_id
+            }
         });
 
     } catch (err) {
