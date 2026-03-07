@@ -8,6 +8,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const territoryRoutes = require('./routes/territory');
 const friendRoutes = require('./routes/friends');
+const kingdomRoutes = require('./routes/kingdom');
 
 const setupMovementSocket = require('./socket/movementSocket');
 
@@ -31,6 +32,25 @@ app.use('/auth', authRoutes);
 app.use('/user', userRoutes);
 app.use('/territory', territoryRoutes);
 app.use('/friends', friendRoutes);
+
+// Auth middleware for kingdom routes
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Access token required.' });
+
+    // Using the same jwt verify logic as server.js
+    const jwt = require('jsonwebtoken');
+    const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_geofit_wars';
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ error: 'Invalid or expired token.' });
+        // The token payload has { userId: user.id } based on login route
+        req.user = { id: user.userId };
+        next();
+    });
+};
+
+app.use('/kingdom', authenticateToken, kingdomRoutes);
 
 // General health check route
 app.get('/', (req, res) => {

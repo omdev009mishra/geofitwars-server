@@ -9,13 +9,16 @@ router.get('/profile', async (req, res) => {
         const userId = req.query.userId;
 
         const result = await db.query(
-            `SELECT id as "userId", username, level, energy, 
-             distance_run as "distanceRun", 
-             territories_count as "territoriesCount", 
-             total_area as "totalArea", 
-             rank, avatar, player_id as "playerId", email,
-             created_at as "joinDate" 
-             FROM users WHERE id = $1`,
+            `SELECT u.id as "userId", u.username, u.level, u.energy, 
+             u.distance_run as "distanceRun", 
+             u.territories_count as "territoriesCount", 
+             u.total_area as "totalArea", 
+             u.rank, u.avatar, u.player_id as "playerId", u.email,
+             u.created_at as "joinDate",
+             k.id as "kingdomId", k.name as "kingdomName", k.emblem as "kingdomEmblem"
+             FROM users u
+             LEFT JOIN kingdoms k ON u.kingdom_id = k.id
+             WHERE u.id = $1`,
             [userId]
         );
 
@@ -44,17 +47,23 @@ router.post('/updateProfile', async (req, res) => {
         const avatarValue = avatar ? avatar.trim() : 'default';
 
         // Update user
-        const result = await db.query(
-            `UPDATE users 
-             SET username = $1, avatar = $2 
-             WHERE id = $3 
-             RETURNING id as "userId", username, level, energy, 
-             distance_run as "distanceRun", 
-             territories_count as "territoriesCount", 
-             total_area as "totalArea", 
-             rank, avatar, player_id as "playerId", email,
-             created_at as "joinDate"`,
+        await db.query(
+            `UPDATE users SET username = $1, avatar = $2 WHERE id = $3`,
             [username.trim(), avatarValue, userId]
+        );
+
+        const result = await db.query(
+            `SELECT u.id as "userId", u.username, u.level, u.energy, 
+             u.distance_run as "distanceRun", 
+             u.territories_count as "territoriesCount", 
+             u.total_area as "totalArea", 
+             u.rank, u.avatar, u.player_id as "playerId", u.email,
+             u.created_at as "joinDate",
+             k.id as "kingdomId", k.name as "kingdomName", k.emblem as "kingdomEmblem"
+             FROM users u
+             LEFT JOIN kingdoms k ON u.kingdom_id = k.id
+             WHERE u.id = $1`,
+            [userId]
         );
 
         if (result.rows.length === 0) {
