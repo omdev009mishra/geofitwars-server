@@ -34,10 +34,11 @@ router.post('/register', async (req, res) => {
         // Hash and Insert
         const saltRounds = 10;
         const passwordHash = await bcrypt.hash(password, saltRounds);
+        const playerId = 'PLAYER-' + Math.floor(100000 + Math.random() * 900000);
 
         await db.query(
-            `INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3)`,
-            [username, email, passwordHash]
+            `INSERT INTO users (username, email, password_hash, player_id) VALUES ($1, $2, $3, $4)`,
+            [username, email, passwordHash, playerId]
         );
 
         res.status(201).json({ message: 'User registered successfully!' });
@@ -130,10 +131,11 @@ router.post('/social-login', async (req, res) => {
                 counter++;
             }
 
+            const playerId = 'PLAYER-' + Math.floor(100000 + Math.random() * 900000);
             const insertRes = await db.query(
-                `INSERT INTO users (username, email, provider, provider_id, avatar, is_online)
-                 VALUES ($1, $2, $3, $4, $5, true) RETURNING *`,
-                [uniqueUsername, email, provider, providerId, profileImage || 'default']
+                `INSERT INTO users (username, email, provider, provider_id, avatar, is_online, player_id)
+                 VALUES ($1, $2, $3, $4, $5, true, $6) RETURNING *`,
+                [uniqueUsername, email, provider, providerId, profileImage || 'default', playerId]
             );
             user = insertRes.rows[0];
         }
