@@ -13,7 +13,7 @@ router.get('/profile', async (req, res) => {
              distance_run as "distanceRun", 
              territories_count as "territoriesCount", 
              total_area as "totalArea", 
-             rank, avatar, 
+             rank, avatar, player_id as "playerId", email,
              created_at as "joinDate" 
              FROM users WHERE id = $1`,
             [userId]
@@ -52,7 +52,7 @@ router.post('/updateProfile', async (req, res) => {
              distance_run as "distanceRun", 
              territories_count as "territoriesCount", 
              total_area as "totalArea", 
-             rank, avatar, 
+             rank, avatar, player_id as "playerId", email,
              created_at as "joinDate"`,
             [username.trim(), avatarValue, userId]
         );
