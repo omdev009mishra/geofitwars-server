@@ -2,11 +2,21 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 
-// GET /user/profile
-// Public route - pass userId as query param e.g. /user/profile?userId=1
 router.get('/profile', async (req, res) => {
     try {
         const userId = req.query.userId;
+        console.log(`[Profile] Fetching profile for userId: ${userId}`);
+
+        if (!userId) {
+            return res.status(400).json({ error: 'userId is required' });
+        }
+
+        // Basic UUID format validation to prevent Postgres crash
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(userId)) {
+            console.error(`[Profile] Invalid UUID format: ${userId}`);
+            return res.status(400).json({ error: 'Invalid userId format. Must be a valid UUID.' });
+        }
 
         const result = await db.query(
             `SELECT u.id as "userId", u.username, u.level, u.energy, 
@@ -23,13 +33,17 @@ router.get('/profile', async (req, res) => {
         );
 
         if (result.rows.length === 0) {
+            console.warn(`[Profile] User not found: ${userId}`);
             return res.status(404).json({ error: 'User not found.' });
         }
 
         res.status(200).json(result.rows[0]);
     } catch (err) {
-        console.error('Profile Fetch Error:', err);
-        res.status(500).json({ error: 'Server error retrieving profile.' });
+        console.error('[Profile] Fetch Error:', err);
+        res.status(500).json({
+            error: 'Server error retrieving profile.',
+            details: err.message
+        });
     }
 });
 
